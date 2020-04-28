@@ -37,4 +37,5 @@ func Execute() {
 
 func init() {
 	root.AddCommand(applyDefaults(cli.NewRunCommand()))
+	root.AddCommand(applyDefaults(cli.NewGenerateCommand()))
 }
