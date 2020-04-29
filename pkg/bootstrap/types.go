@@ -1,8 +1,17 @@
 package bootstrap
 
 import (
+	"fmt"
+	"io"
+
+	"github.com/jpeach/envoy-bootstrap/pkg/must"
+
 	envoy_config_bootstrap_v3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 type Bootstrap = envoy_config_bootstrap_v3.Bootstrap
@@ -20,4 +29,24 @@ func NewSocketAddress(addr *SocketAddress) *Address {
 
 func NewPipeAddress(addr *PipeAddress) *Address {
 	return &Address{Address: &envoy_config_core_v3.Address_Pipe{Pipe: addr}}
+}
+
+func NewMessage(typeName string) (proto.Message, error) {
+	mtype, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(typeName))
+	if err != nil {
+		return nil, fmt.Errorf("message type %q: %s", typeName, err)
+	}
+
+	return mtype.New().Interface(), nil
+}
+
+func FormatMessage(out io.Writer, m proto.Message, marshal *protojson.MarshalOptions) {
+	if marshal == nil {
+		marshal = &protojson.MarshalOptions{
+			Multiline: true,
+			Indent:    "  ",
+		}
+	}
+
+	out.Write(must.Bytes(marshal.Marshal(m)))
 }

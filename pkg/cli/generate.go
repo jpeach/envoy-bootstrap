@@ -11,24 +11,30 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func NewGenerateCommand() *cobra.Command{
+func NewGenerateCommand() *cobra.Command {
 	generate := cobra.Command{
 		Use:   "generate [FLAGS ...]",
 		Short: "Generate and Envoy bootstrap configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			b := bootstrap.NewBootstrap()
 
-			data, err := protojson.MarshalOptions{
-				Multiline: true,
-				Indent: "  ",
-			}.Marshal(proto.MessageV2(b))
-
-			if err != nil {
-				return err
-			}
-
-			os.Stdout.Write(data)
+			bootstrap.FormatMessage(os.Stdout, proto.MessageV2(b), nil)
 			fmt.Fprintln(os.Stdout)
+
+			for _, a := range args {
+				m, err := bootstrap.NewMessage(a)
+				if err != nil {
+					return err
+				}
+
+				bootstrap.FormatMessage(os.Stdout, m,
+					&protojson.MarshalOptions{
+						Multiline:       true,
+						Indent:          "  ",
+						EmitUnpopulated: true,
+					})
+				fmt.Fprintln(os.Stdout)
+			}
 
 			return nil
 		},

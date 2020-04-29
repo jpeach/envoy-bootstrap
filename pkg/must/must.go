@@ -8,3 +8,12 @@ func String(s string, err error) string {
 
 	return s
 }
+
+// Bytes ...
+func Bytes(b []byte, err error) []byte {
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return b
+}
