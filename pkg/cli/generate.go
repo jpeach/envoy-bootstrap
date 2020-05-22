@@ -42,7 +42,12 @@ func NewGenerateCommand() *cobra.Command {
 				},
 			}
 
-			bootstrap.FormatMessage(os.Stdout, proto.MessageV2(b), nil)
+			bootstrap.FormatMessage(os.Stdout, proto.MessageV2(b),
+				&protojson.MarshalOptions{
+					Multiline: true,
+					Indent:    "  ",
+				})
+
 			fmt.Fprintln(os.Stdout)
 
 			for _, a := range args {
