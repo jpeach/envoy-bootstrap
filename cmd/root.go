@@ -13,18 +13,10 @@ import (
 const PROGNAME = "envoy-bootstrap"
 
 // root represents the base command when called without any subcommands
-var root = applyDefaults(&cobra.Command{
+var root = cli.Defaults(&cobra.Command{
 	Use:   fmt.Sprintf("%s CMD [FLAGS ...]", PROGNAME),
 	Short: "Envoy bootstrapping tool",
 })
-
-func applyDefaults(c *cobra.Command) *cobra.Command {
-	c.SilenceUsage = true
-	c.SilenceErrors = true
-	c.DisableFlagsInUseLine = true
-
-	return c
-}
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -36,6 +28,7 @@ func Execute() {
 }
 
 func init() {
-	root.AddCommand(applyDefaults(cli.NewRunCommand()))
-	root.AddCommand(applyDefaults(cli.NewGenerateCommand()))
+	root.AddCommand(cli.NewRunCommand())
+	root.AddCommand(cli.NewGenerateCommand())
+	root.AddCommand(cli.NewTypeCommand())
 }

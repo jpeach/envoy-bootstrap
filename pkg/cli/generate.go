@@ -16,8 +16,9 @@ import (
 func NewGenerateCommand() *cobra.Command {
 	cmd := cobra.Command{
 		Use:   "generate [FLAGS ...]",
-		Short: "Generate and Envoy bootstrap configuration",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Short: "Generate an Envoy bootstrap configuration",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
 			b := bootstrap.NewBootstrap()
 
 			b.StaticResources.Listeners = []*bootstrap.Listener{
@@ -50,25 +51,8 @@ func NewGenerateCommand() *cobra.Command {
 				})
 
 			fmt.Fprintln(os.Stdout)
-
-			for _, a := range args {
-				m, err := bootstrap.NewMessage(a)
-				if err != nil {
-					return err
-				}
-
-				bootstrap.FormatMessage(os.Stdout, m,
-					&protojson.MarshalOptions{
-						Multiline:       true,
-						Indent:          "  ",
-						EmitUnpopulated: true,
-					})
-				fmt.Fprintln(os.Stdout)
-			}
-
-			return nil
 		},
 	}
 
-	return &cmd
+	return Defaults(&cmd)
 }

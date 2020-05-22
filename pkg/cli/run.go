@@ -16,5 +16,5 @@ func NewRunCommand() *cobra.Command {
 
 	// TODO(jpeach): add flags.
 
-	return &run
+	return Defaults(&run)
 }
