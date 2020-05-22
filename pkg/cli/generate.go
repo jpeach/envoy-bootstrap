@@ -12,8 +12,9 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
+// NewGenerateCommand returns a "generate" subcommand.
 func NewGenerateCommand() *cobra.Command {
-	generate := cobra.Command{
+	cmd := cobra.Command{
 		Use:   "generate [FLAGS ...]",
 		Short: "Generate and Envoy bootstrap configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -69,5 +70,5 @@ func NewGenerateCommand() *cobra.Command {
 		},
 	}
 
-	return &generate
+	return &cmd
 }
