@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/jpeach/envoy-bootstrap/pkg/bootstrap"
 
@@ -44,13 +43,15 @@ func NewGenerateCommand() *cobra.Command {
 				},
 			}
 
-			bootstrap.FormatMessage(os.Stdout, proto.MessageV2(b),
+			bootstrap.FormatMessage(
+				cmd.OutOrStdout(),
+				proto.MessageV2(b),
 				&protojson.MarshalOptions{
 					Multiline: true,
 					Indent:    "  ",
 				})
 
-			fmt.Fprintln(os.Stdout)
+			fmt.Fprintln(cmd.OutOrStdout())
 		},
 	}
 

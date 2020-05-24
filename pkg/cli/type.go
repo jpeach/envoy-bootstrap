@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"sort"
 
 	"github.com/jpeach/envoy-bootstrap/pkg/bootstrap"
@@ -40,7 +39,7 @@ func NewTypeCommand() *cobra.Command {
 
 				sort.Strings(names)
 				for _, n := range names {
-					fmt.Printf("%s\n", n)
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\n", n)
 				}
 			},
 		}),
@@ -50,19 +49,21 @@ func NewTypeCommand() *cobra.Command {
 			Short: "Show the specified Envoy API types",
 			RunE: func(cmd *cobra.Command, args []string) error {
 				for _, a := range args {
-					m, err := bootstrap.NewMessage(a)
+					message, err := bootstrap.NewMessage(a)
 					if err != nil {
 						return err
 					}
 
-					bootstrap.FormatMessage(os.Stdout, m,
+					bootstrap.FormatMessage(
+						cmd.OutOrStdout(),
+						message,
 						&protojson.MarshalOptions{
 							Indent:          "  ",
 							Multiline:       true,
 							EmitUnpopulated: true,
 						})
 
-					fmt.Fprintln(os.Stdout)
+					fmt.Fprintln(cmd.OutOrStdout())
 				}
 
 				return nil
@@ -107,7 +108,7 @@ func NewTypeCommand() *cobra.Command {
 
 				sort.Strings(names)
 				for _, n := range names {
-					fmt.Printf("%s\n", n)
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\n", n)
 				}
 
 				return nil
