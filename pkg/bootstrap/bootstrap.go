@@ -11,22 +11,27 @@ import (
 func NewBootstrap() *Bootstrap {
 	b := Bootstrap{
 		Node: &Node{
-			Id:                               must.String(os.Hostname()),
-			Cluster:                          must.String(os.Hostname()),
-			Metadata:                          nil,
-			Locality:                          nil,
+			Id:       must.String(os.Hostname()),
+			Cluster:  must.String(os.Hostname()),
+			Metadata: nil,
+			Locality: nil,
 		},
 		Admin: &Admin{
-			AccessLogPath:        "/dev/null",
+			AccessLogPath: "/dev/null",
 			Address: NewPipeAddress(&PipeAddress{
-				Path:                 "/var/run/envoy/admin.pipe",
-				Mode:                 0644,
+				Path: "/var/run/envoy/admin.pipe",
+				Mode: 0644,
 			}),
 		},
 		StaticResources: &envoy_config_bootstrap_v3.Bootstrap_StaticResources{
-			Listeners:            nil,
-			Clusters:             nil,
-			Secrets:              nil,
+			Listeners: nil,
+			Clusters:  nil,
+			Secrets:   nil,
+		},
+		DynamicResources: &envoy_config_bootstrap_v3.Bootstrap_DynamicResources{
+			LdsConfig: nil,
+			CdsConfig: nil,
+			AdsConfig: nil,
 		},
 	}
 

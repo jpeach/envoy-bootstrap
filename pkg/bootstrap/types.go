@@ -58,7 +58,7 @@ func NewMessage(typeName string) (proto.Message, error) {
 	return mtype.New().Interface(), nil
 }
 
-func FormatMessage(out io.Writer, m proto.Message, marshal *protojson.MarshalOptions) {
+func FormatMessage(out io.Writer, m proto.Message, marshal *protojson.MarshalOptions) error {
 	if marshal == nil {
 		marshal = &protojson.MarshalOptions{
 			Multiline: true,
@@ -66,5 +66,6 @@ func FormatMessage(out io.Writer, m proto.Message, marshal *protojson.MarshalOpt
 		}
 	}
 
-	out.Write(must.Bytes(marshal.Marshal(m)))
+	_, err := out.Write(must.Bytes(marshal.Marshal(m)))
+	return err
 }
