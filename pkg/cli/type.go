@@ -135,13 +135,7 @@ func NewTypeContainsCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			names := []string{}
-
-			m, err := bootstrap.NewMessage(args[0])
-			if err != nil {
-				return err
-			}
-
-			wanted := m.ProtoReflect().Descriptor().FullName()
+			wanted := args[0]
 
 			// For each registered type, collect its name if it contains
 			// a field whose type is the one we want.
@@ -152,16 +146,19 @@ func NewTypeContainsCommand() *cobra.Command {
 					for i := 0; i < fields.Len(); i++ {
 						f := fields.Get(i)
 
-						if f.Kind() != protoreflect.MessageKind {
-							continue
+						switch f.Kind() {
+						case protoreflect.MessageKind:
+							if string(f.Message().FullName()) == wanted {
+								names = append(names, string(m.Descriptor().FullName()))
+								return true
+							}
+						case protoreflect.EnumKind:
+							if string(f.Enum().FullName()) == wanted {
+								names = append(names, string(m.Descriptor().FullName()))
+								return true
+							}
 						}
 
-						// TODO(jpeach) show enums too ...
-
-						if f.Message().FullName() == wanted {
-							names = append(names, string(m.Descriptor().FullName()))
-							return true
-						}
 					}
 
 					return true
