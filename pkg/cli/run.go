@@ -1,14 +1,18 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/exec"
 	"path"
-	"sync"
 	"time"
+
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/jpeach/envoy-bootstrap/pkg/bootstrap"
+	"github.com/jpeach/envoy-bootstrap/pkg/xds"
 
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -17,8 +21,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
-
-	"github.com/jpeach/envoy-bootstrap/pkg/bootstrap"
 )
 
 // NewRunCommand ...
@@ -33,6 +35,32 @@ func NewRunCommand() *cobra.Command {
 	return Defaults(&run)
 }
 
+type runState struct {
+	grpcServer *grpc.Server
+	xdsServer  xds.Server
+	snapshots  xds.SnapshotCache
+}
+
+func newServer() *runState {
+	run := runState{}
+	callbacks := xds.CallbackFuncs{
+		StreamOpenFunc: func(ctx context.Context, streamID int64, typeURL string) error {
+			log.Printf("opened stream %d for %q", streamID, typeURL)
+			return nil
+		},
+	}
+
+	options := []grpc.ServerOption{}
+	run.grpcServer = grpc.NewServer(options...)
+
+	run.snapshots = xds.NewSnapshotCache(xds.IDHash{}, &xds.StandardLogger{})
+	run.xdsServer = xds.NewServer(context.Background(), run.snapshots, callbacks)
+
+	xds.RegisterServer(run.grpcServer, run.xdsServer)
+
+	return &run
+}
+
 func writeProtobuf(path string, p proto.Message) error {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_EXCL|os.O_RDWR, 0644)
 	if err != nil {
@@ -45,6 +73,31 @@ func writeProtobuf(path string, p proto.Message) error {
 	}
 
 	return file.Close()
+}
+
+func newManagementCluster(name string, addr *bootstrap.Address) *envoy_config_cluster_v3.Cluster {
+	return &envoy_config_cluster_v3.Cluster{
+		Name:                 "xds",
+		ConnectTimeout:       ptypes.DurationProto(time.Second * 10),
+		Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
+		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+			Type: envoy_config_cluster_v3.Cluster_STATIC,
+		},
+		LoadAssignment: &envoy_config_endpoint_v3.ClusterLoadAssignment{
+			ClusterName: "xds",
+			Endpoints: []*envoy_config_endpoint_v3.LocalityLbEndpoints{
+				&envoy_config_endpoint_v3.LocalityLbEndpoints{
+					LbEndpoints: []*envoy_config_endpoint_v3.LbEndpoint{
+						&envoy_config_endpoint_v3.LbEndpoint{
+							HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{
+								Endpoint: &envoy_config_endpoint_v3.Endpoint{
+									Address: addr,
+								},
+							},
+						}},
+				}},
+		},
+	}
 }
 
 func runEnvoy(cmd *cobra.Command, args []string) error {
@@ -77,50 +130,24 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 	// Configure a GRPC bootstrap cluster for the xDS socket. This has the minimum
 	// number of required fields.
 	envoyBootstrap.StaticResources.Clusters = []*envoy_config_cluster_v3.Cluster{
-		&envoy_config_cluster_v3.Cluster{
-			Name:           "xds",
-			ConnectTimeout: ptypes.DurationProto(time.Second * 10),
-			ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
-				Type: envoy_config_cluster_v3.Cluster_STATIC,
-			},
-			LoadAssignment: &envoy_config_endpoint_v3.ClusterLoadAssignment{
-				ClusterName: "xds",
-				Endpoints: []*envoy_config_endpoint_v3.LocalityLbEndpoints{
-					&envoy_config_endpoint_v3.LocalityLbEndpoints{
-						LbEndpoints: []*envoy_config_endpoint_v3.LbEndpoint{
-							&envoy_config_endpoint_v3.LbEndpoint{
-								HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{
-									Endpoint: &envoy_config_endpoint_v3.Endpoint{
-										Address: bootstrap.NewPipeAddress(
-											&bootstrap.PipeAddress{
-												Path: xdsSocketPath,
-											},
-										),
-									},
-								},
-							}},
-					}},
-			},
-		},
+		newManagementCluster("xds",
+			bootstrap.NewPipeAddress(&bootstrap.PipeAddress{
+				Path: xdsSocketPath,
+			}),
+		),
 	}
 
 	envoyBootstrap.DynamicResources.CdsConfig = &bootstrap.ConfigSource{
-		ConfigSourceSpecifier: bootstrap.NewApiConfigSource("xds"),
+		ConfigSourceSpecifier: bootstrap.NewAdsConfigSource(),
 	}
 	envoyBootstrap.DynamicResources.LdsConfig = &bootstrap.ConfigSource{
-		ConfigSourceSpecifier: bootstrap.NewApiConfigSource("xds"),
+		ConfigSourceSpecifier: bootstrap.NewAdsConfigSource(),
 	}
+	envoyBootstrap.DynamicResources.AdsConfig = bootstrap.NewApiConfigSource("xds").ApiConfigSource
 
 	if err := writeProtobuf(bootstrapPath, envoyBootstrap); err != nil {
 		return err
 	}
-
-	// TODO(jpeach): This is trash, we need to start both
-	// background tasks, then exit if either of them stop.
-	// In the // foreground we would wait on a signal notification.
-	wg := sync.WaitGroup{}
-
-	wg.Add(2)
 
 	// Need to listen before starting envoy, since it will fail to start if the socket isn't there.
 	listener, err := net.Listen("unix", xdsSocketPath)
@@ -128,14 +155,13 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	run := newServer()
+
 	go func() {
-		rpcServer := grpc.NewServer()
-
-		if err := rpcServer.Serve(listener); err != nil {
-			log.Printf("%s", err)
+		log.Printf("serving xDS on %s", xdsSocketPath)
+		if err := run.grpcServer.Serve(listener); err != nil {
+			log.Fatalf("gRPC server failed: %s", err)
 		}
-
-		wg.Done()
 	}()
 
 	envoyCmd := exec.Cmd{
@@ -148,19 +174,13 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 		Stderr: cmd.ErrOrStderr(),
 	}
 
-	go func() {
-		defer wg.Done()
+	if err := envoyCmd.Start(); err != nil {
+		log.Fatalf("%s", err)
+	}
 
-		if err := envoyCmd.Start(); err != nil {
-			log.Printf("%s", err)
-			return
-		}
+	if err := envoyCmd.Wait(); err != nil {
+		log.Fatalf("%s", err)
+	}
 
-		if err := envoyCmd.Wait(); err != nil {
-			log.Printf("%s", err)
-		}
-	}()
-
-	wg.Wait()
 	return nil
 }
