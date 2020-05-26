@@ -10,11 +10,11 @@ import (
 	"path"
 	"time"
 
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/jpeach/envoy-bootstrap/pkg/bootstrap"
 	"github.com/jpeach/envoy-bootstrap/pkg/xds"
 
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -139,11 +139,16 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 
 	envoyBootstrap.DynamicResources.CdsConfig = &bootstrap.ConfigSource{
 		ConfigSourceSpecifier: bootstrap.NewAdsConfigSource(),
+		ResourceApiVersion:    envoy_config_core_v3.ApiVersion_V3,
 	}
+
 	envoyBootstrap.DynamicResources.LdsConfig = &bootstrap.ConfigSource{
 		ConfigSourceSpecifier: bootstrap.NewAdsConfigSource(),
+		ResourceApiVersion:    envoy_config_core_v3.ApiVersion_V3,
 	}
+
 	envoyBootstrap.DynamicResources.AdsConfig = bootstrap.NewApiConfigSource("xds").ApiConfigSource
+	envoyBootstrap.DynamicResources.AdsConfig.TransportApiVersion = envoy_config_core_v3.ApiVersion_V3
 
 	if err := writeProtobuf(bootstrapPath, envoyBootstrap); err != nil {
 		return err
