@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	clusterservice "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	endpointservice "github.com/envoyproxy/go-control-plane/envoy/service/endpoint/v3"
@@ -12,9 +13,11 @@ import (
 	routeservice "github.com/envoyproxy/go-control-plane/envoy/service/route/v3"
 	runtimeservice "github.com/envoyproxy/go-control-plane/envoy/service/runtime/v3"
 	secretservice "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	logger "github.com/envoyproxy/go-control-plane/pkg/log"
 	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 )
 
@@ -24,10 +27,32 @@ type Callbacks = server.Callbacks
 type Snapshot = cache.Snapshot
 type SnapshotCache = cache.SnapshotCache
 type Cache = cache.Cache
+type Resources = cache.Resources
+
 type NodeHash = cache.NodeHash
 type IDHash = cache.IDHash
 
 type Logger = logger.Logger
+
+type ResponseType = types.ResponseType
+
+const (
+	EndpointType = types.Endpoint
+	ClusterType  = types.Cluster
+	RouteType    = types.Route
+	ListenerType = types.Listener
+	SecretType   = types.Secret
+	RuntimeType  = types.Runtime
+	UnknownType  = types.UnknownType
+)
+
+type ConstantHash string
+
+var _ cache.NodeHash = ConstantHash("")
+
+func (c ConstantHash) ID(*envoy_config_core_v3.Node) string {
+	return string(c)
+}
 
 // CallbackFuncs is a convenience type for generating Server callbacks.
 type CallbackFuncs struct {
@@ -153,4 +178,12 @@ func NewServer(ctx context.Context, configCache Cache, cb Callbacks) Server {
 
 func NewSnapshotCache(hash cache.NodeHash, l Logger) SnapshotCache {
 	return cache.NewSnapshotCache(true /* ads */, hash, l)
+}
+
+func NewResources(version string, items ...proto.Message) Resources {
+	resources := make([]types.Resource, len(items), len(items))
+	for n, i := range items {
+		resources[n] = i
+	}
+	return cache.NewResources(version, resources)
 }
