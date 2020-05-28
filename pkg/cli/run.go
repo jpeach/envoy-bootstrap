@@ -11,16 +11,18 @@ import (
 	"time"
 
 	"github.com/jpeach/envoy-bootstrap/pkg/bootstrap"
+	"github.com/jpeach/envoy-bootstrap/pkg/hacks"
 	"github.com/jpeach/envoy-bootstrap/pkg/xds"
 
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/golang/protobuf/proto"
+	envoy_service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // NewRunCommand ...
@@ -45,15 +47,24 @@ func newServer() *runState {
 	run := runState{}
 	callbacks := xds.CallbackFuncs{
 		StreamOpenFunc: func(ctx context.Context, streamID int64, typeURL string) error {
-			log.Printf("opened stream %d for %q", streamID, typeURL)
+			log.Printf("[%d] opened stream for %q", streamID, typeURL)
 			return nil
+		},
+		StreamRequestFunc: func(streamID int64, request *envoy_service_discovery_v3.DiscoveryRequest) error {
+			log.Printf("[%d] requesting %s", streamID, request.GetTypeUrl())
+			log.Printf("[%d] wanted resources %s", streamID, request.GetResourceNames())
+			return nil
+		},
+		StreamResponseFunc: func(streamID int64, request *envoy_service_discovery_v3.DiscoveryRequest, response *envoy_service_discovery_v3.DiscoveryResponse) {
+			log.Printf("[%d] %s", streamID, response)
 		},
 	}
 
 	options := []grpc.ServerOption{}
 	run.grpcServer = grpc.NewServer(options...)
 
-	run.snapshots = xds.NewSnapshotCache(xds.IDHash{}, &xds.StandardLogger{})
+	// NOTE(jpeach): we use ConstantHash so that we server all nodes the same resources.
+	run.snapshots = xds.NewSnapshotCache(xds.ConstantHash("*"), &xds.StandardLogger{})
 	run.xdsServer = xds.NewServer(context.Background(), run.snapshots, callbacks)
 
 	xds.RegisterServer(run.grpcServer, run.xdsServer)
@@ -61,13 +72,13 @@ func newServer() *runState {
 	return &run
 }
 
-func writeProtobuf(path string, p proto.Message) error {
+func writeProtobuf(path string, message proto.Message) error {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_EXCL|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
 
-	if err := bootstrap.FormatMessage(file, proto.MessageV2(p), nil); err != nil {
+	if err := bootstrap.FormatMessage(file, message, nil); err != nil {
 		file.Close()
 		return err
 	}
@@ -150,7 +161,7 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 	envoyBootstrap.DynamicResources.AdsConfig = bootstrap.NewApiConfigSource("xds").ApiConfigSource
 	envoyBootstrap.DynamicResources.AdsConfig.TransportApiVersion = envoy_config_core_v3.ApiVersion_V3
 
-	if err := writeProtobuf(bootstrapPath, envoyBootstrap); err != nil {
+	if err := writeProtobuf(bootstrapPath, bootstrap.ProtoV2(envoyBootstrap)); err != nil {
 		return err
 	}
 
@@ -181,6 +192,17 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 
 	if err := envoyCmd.Start(); err != nil {
 		log.Fatalf("%s", err)
+	}
+
+	{
+		snap := xds.Snapshot{}
+		snap.Resources[xds.ListenerType] = xds.NewResources(
+			hacks.NewVersion(), hacks.NewTCPListener("ssh-server", 2222))
+
+		// NOTE(jpeach): The NodeID we pass here matches the ConstantHash value.
+		if err := run.snapshots.SetSnapshot("*", snap); err != nil {
+			log.Printf("ERROR: %s", err)
+		}
 	}
 
 	if err := envoyCmd.Wait(); err != nil {
