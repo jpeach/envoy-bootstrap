@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/jpeach/envoy-bootstrap/pkg/must"
 
 	envoy_config_bootstrap_v3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	envoy_config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	protov1 "github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -28,10 +31,6 @@ type PortValue = envoy_config_core_v3.SocketAddress_PortValue
 type NamedPort = envoy_config_core_v3.SocketAddress_NamedPort
 
 type TransportSocket = envoy_config_core_v3.TransportSocket
-
-type Listener = envoy_config_listener_v3.Listener
-type FilterChain = envoy_config_listener_v3.FilterChain
-type FilterChainMatch = envoy_config_listener_v3.FilterChainMatch
 
 func NewSocketAddress(addr *SocketAddress) *Address {
 	return &Address{Address: &envoy_config_core_v3.Address_SocketAddress{SocketAddress: addr}}
@@ -68,4 +67,34 @@ func FormatMessage(out io.Writer, m proto.Message, marshal *protojson.MarshalOpt
 
 	_, err := out.Write(must.Bytes(marshal.Marshal(m)))
 	return err
+}
+
+func True() *wrappers.BoolValue {
+	return &wrappers.BoolValue{Value: true}
+}
+
+func False() *wrappers.BoolValue {
+	return &wrappers.BoolValue{Value: false}
+}
+
+func UInt32(i uint32) *wrappers.UInt32Value {
+	return &wrappers.UInt32Value{Value: i}
+}
+
+func Int32(i int32) *wrappers.Int32Value {
+	return &wrappers.Int32Value{Value: i}
+}
+
+func MarshalAny(message proto.Message) (*any.Any, error) {
+	return ptypes.MarshalAny(ProtoV1(message))
+}
+
+// ProtoV1 converts a V2 message to V1.
+func ProtoV1(message proto.Message) protov1.Message {
+	return protov1.MessageV1(message)
+}
+
+// ProtoV2 converts a V1 message to V2.
+func ProtoV2(message protov1.Message) proto.Message {
+	return protov1.MessageV2(message)
 }
