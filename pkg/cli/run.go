@@ -12,6 +12,7 @@ import (
 
 	"github.com/jpeach/envoy-bootstrap/pkg/bootstrap"
 	"github.com/jpeach/envoy-bootstrap/pkg/hacks"
+	"github.com/jpeach/envoy-bootstrap/pkg/must"
 	"github.com/jpeach/envoy-bootstrap/pkg/xds"
 
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -33,6 +34,8 @@ func NewRunCommand() *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  runEnvoy,
 	}
+
+	run.Flags().StringArray("hack", []string{}, "Hack workload specification")
 
 	return Defaults(&run)
 }
@@ -182,10 +185,13 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 
 	envoyCmd := exec.Cmd{
 		Path: envoyPath,
-		Args: append(
-			[]string{envoyPath, "--config-path", bootstrapPath},
-			envoyArgs...),
-		Stdin:  nil,
+		Args: func() []string {
+			args := []string{envoyPath}
+			args = append(args, envoyArgs...)
+			args = append(args, "--config-path", bootstrapPath)
+			return args
+		}(),
+		Stdin:  os.Stdin,
 		Stdout: cmd.OutOrStdout(),
 		Stderr: cmd.ErrOrStderr(),
 	}
@@ -194,10 +200,20 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 		log.Fatalf("%s", err)
 	}
 
-	{
-		snap := xds.Snapshot{}
-		snap.Resources[xds.ListenerType] = xds.NewResources(
-			hacks.NewVersion(), hacks.NewTCPListener("ssh-server", 2222))
+	for _, h := range must.StringSlice(cmd.Flags().GetStringArray("hack")) {
+		spec, err := hacks.ParseSpec(h)
+		if err != nil {
+			return fmt.Errorf("invalid hack spec %q: %w", h, err)
+		}
+
+		var snap xds.Snapshot
+
+		switch spec.Hack {
+		case "tcpproxy":
+			snap = hacks.HackTCPProxy(spec)
+		default:
+			return fmt.Errorf("invalid hack spec %q: not found", h)
+		}
 
 		// NOTE(jpeach): The NodeID we pass here matches the ConstantHash value.
 		if err := run.snapshots.SetSnapshot("*", snap); err != nil {
@@ -206,7 +222,7 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := envoyCmd.Wait(); err != nil {
-		log.Fatalf("%s", err)
+		log.Fatalf("envoy exited: %s", err)
 	}
 
 	return nil

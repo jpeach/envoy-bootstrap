@@ -20,13 +20,13 @@ func (p Parameter) AsBool() (bool, error) {
 	return strconv.ParseBool(string(p))
 }
 
-// AsInt ...
-func (p Parameter) AsInt() (int64, error) {
+// AsInt64 ...
+func (p Parameter) AsInt64() (int64, error) {
 	return strconv.ParseInt(string(p), 10, 32)
 }
 
-// AsAddr ...
-func (p Parameter) AsAddr() (net.IP, error) {
+// IP ...
+func (p Parameter) IP() (net.IP, error) {
 	ip := net.ParseIP(string(p))
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address")
