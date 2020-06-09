@@ -4,10 +4,13 @@ go 1.14
 
 require (
 	github.com/envoyproxy/go-control-plane v0.9.5
-	github.com/golang/protobuf v1.4.0-rc.4.0.20200313231945-b860323f09d0
+	github.com/golang/protobuf v1.4.2
 	github.com/google/uuid v1.1.1
 	github.com/spf13/cobra v1.0.0
-	golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
-	google.golang.org/grpc v1.25.1
-	google.golang.org/protobuf v1.21.0
+	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
+	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980
+	golang.org/x/text v0.3.2 // indirect
+	google.golang.org/genproto v0.0.0-20200608115520-7c474a2e3482 // indirect
+	google.golang.org/grpc v1.29.1
+	google.golang.org/protobuf v1.24.0
 )

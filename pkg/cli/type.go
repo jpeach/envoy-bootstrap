@@ -27,6 +27,7 @@ func NewTypeCommand() *cobra.Command {
 		Defaults(NewTypeListCommand()),
 		Defaults(NewTypeShowCommand()),
 		Defaults(NewTypeContainsCommand()),
+		Defaults(NewCRDGenCommand()),
 	)
 
 	return cmd
