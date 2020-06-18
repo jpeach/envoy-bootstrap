@@ -118,6 +118,14 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 	envoyPath := args[0]
 	envoyArgs := args[1:]
 
+	// Validate hack args up front.
+	for _, h := range must.StringSlice(cmd.Flags().GetStringArray("hack")) {
+		_, err := hacks.ParseSpec(h)
+		if err != nil {
+			return fmt.Errorf("invalid hack spec %q: %w", h, err)
+		}
+	}
+
 	if err := unix.Access(envoyPath, unix.R_OK|unix.X_OK); err != nil {
 		return fmt.Errorf("%s: %w", envoyPath, err)
 	}
@@ -212,7 +220,7 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 		case "tcpproxy":
 			snap = hacks.HackTCPProxy(spec)
 		default:
-			return fmt.Errorf("invalid hack spec %q: not found", h)
+			log.Printf("invalid hack spec %q: not found", h)
 		}
 
 		// NOTE(jpeach): The NodeID we pass here matches the ConstantHash value.
