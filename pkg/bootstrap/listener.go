@@ -37,16 +37,19 @@ func NewFilter(name string, config proto.Message) *Filter {
 	}
 }
 
-// NewCidrForIP ...
+// NewCidrForIP returns a /32 for IPv6 and a /128 for IPv6.
 func NewCidrForIP(ip net.IP) *CidrRange {
-	var cidr *CidrRange
-
 	if ip != nil {
-		cidr = &CidrRange{
+		nbytes := uint32(16)
+		if ip.To4() != nil {
+			nbytes = 4
+		}
+
+		return &CidrRange{
 			AddressPrefix: ip.String(),
-			PrefixLen:     UInt32(uint32(len(ip) * 8)),
+			PrefixLen:     UInt32(nbytes * 8),
 		}
 	}
 
-	return cidr
+	return nil
 }
