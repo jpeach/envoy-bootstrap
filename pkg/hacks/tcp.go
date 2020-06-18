@@ -49,7 +49,7 @@ func HackTCPProxy(spec Spec) xds.Snapshot {
 		Filters: []*bootstrap.Filter{
 			bootstrap.NewFilter("envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy",
 				bootstrap.ProtoV2(&envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy{
-					StatPrefix: fmt.Sprintf("%s:%s", name, port),
+					StatPrefix: fmt.Sprintf("%s:%d", name, port),
 					ClusterSpecifier: &envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy_WeightedClusters{
 						WeightedClusters: &envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy_WeightedCluster{
 							Clusters: []*envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy_WeightedCluster_ClusterWeight{
