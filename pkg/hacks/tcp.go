@@ -2,7 +2,6 @@ package hacks
 
 import (
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -21,7 +20,7 @@ func HackTCPProxy(spec Spec) xds.Snapshot {
 	port := must.Int64(spec.Parameters["port"].AsInt64())
 	cluster := must.String(spec.Parameters["cluster"].AsString())
 
-	os := must.String(spec.Parameters["os"].AsString())
+	osname := must.String(spec.Parameters["os"].AsString())
 
 	if cluster == "" {
 		cluster = fmt.Sprintf("tcpproxy/cluster/%s/%d", name, port)
@@ -38,7 +37,7 @@ func HackTCPProxy(spec Spec) xds.Snapshot {
 	chains := &bootstrap.FilterChain{
 		FilterChainMatch: &bootstrap.FilterChainMatch{
 			PrefixRanges: []*bootstrap.CidrRange{
-				bootstrap.NewCidrForIP(net.ParseIP("127.0.0.8")),
+				bootstrap.NewCidrForIP(addr),
 			},
 			SourceType:           0,
 			SourcePrefixRanges:   nil,
@@ -89,7 +88,7 @@ func HackTCPProxy(spec Spec) xds.Snapshot {
 	// node.
 	//
 	// https://github.com/envoyproxy/envoy/issues/11340
-	if strings.ToLower(os) == "linux" {
+	if strings.ToLower(osname) == "linux" {
 		listener.Freebind = bootstrap.True()
 	}
 
