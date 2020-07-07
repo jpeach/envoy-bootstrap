@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/envoyproxy/go-control-plane v0.9.5
+	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.4.2
 	github.com/google/uuid v1.1.1
 	github.com/spf13/cobra v1.0.0
@@ -13,4 +14,5 @@ require (
 	google.golang.org/genproto v0.0.0-20200608115520-7c474a2e3482 // indirect
 	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.24.0
+	gopkg.in/yaml.v2 v2.3.0 // indirect
 )

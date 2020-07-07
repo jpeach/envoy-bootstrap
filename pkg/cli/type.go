@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"sort"
@@ -9,6 +10,7 @@ import (
 	"github.com/jpeach/envoy-bootstrap/pkg/bootstrap"
 	"github.com/jpeach/envoy-bootstrap/pkg/must"
 
+	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -76,6 +78,22 @@ func NewTypeShowCommand() *cobra.Command {
 		fmt.Fprintln(out)
 	}
 
+	formatters["yaml"] = func(out io.Writer, m proto.Message) {
+		jsonBytes := bytes.Buffer{}
+
+		bootstrap.FormatMessage(&jsonBytes, m,
+			&protojson.MarshalOptions{
+				Indent:          "  ",
+				Multiline:       true,
+				EmitUnpopulated: true,
+			})
+
+		yamlBytes, _ := yaml.JSONToYAML(jsonBytes.Bytes())
+
+		out.Write(yamlBytes)
+		fmt.Fprintln(out)
+	}
+
 	formatters["fields"] = func(out io.Writer, m proto.Message) {
 		w := tabwriter.NewWriter(out, 8, 8, 2, ' ', 0)
 
@@ -123,7 +141,7 @@ func NewTypeShowCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringP("format", "f", "fields", "Output format (\"fields\" or \"json\")")
+	cmd.Flags().StringP("format", "f", "fields", `Output format ("fields", "yaml" or "json")`)
 
 	return cmd
 }
