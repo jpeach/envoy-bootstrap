@@ -28,6 +28,7 @@ func NewTypeCommand() *cobra.Command {
 	cmd.AddCommand(
 		Defaults(NewTypeListCommand()),
 		Defaults(NewTypeShowCommand()),
+		Defaults(NewTypeURLCommand()),
 		Defaults(NewTypeContainsCommand()),
 		Defaults(NewCRDGenCommand()),
 	)
@@ -188,6 +189,30 @@ func NewTypeContainsCommand() *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", n)
 			}
 
+			return nil
+		},
+	}
+}
+
+// NewTypeURLCommand ...
+func NewTypeURLCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "url TYPENAME",
+		Short: "Show the gRPC type URL for the given Envoy API types",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			for _, typeName := range args {
+				message, err := bootstrap.NewMessage(typeName)
+				if err != nil {
+					return err
+				}
+
+				any, err := bootstrap.MarshalAny(message)
+				if err != nil {
+					return err
+				}
+
+				fmt.Printf("%s\n", any.TypeUrl)
+			}
 			return nil
 		},
 	}
