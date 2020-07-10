@@ -10,6 +10,15 @@ import (
 // Parameter is a param value represented as a string.
 type Parameter string
 
+// Or returns the default if the parameter is empty.
+func (p Parameter) Or(or string) Parameter {
+	if p == "" {
+		return Parameter(or)
+	}
+
+	return p
+}
+
 // AsString ...
 func (p Parameter) AsString() (string, error) {
 	return string(p), nil
@@ -29,7 +38,7 @@ func (p Parameter) AsInt64() (int64, error) {
 func (p Parameter) IP() (net.IP, error) {
 	ip := net.ParseIP(string(p))
 	if ip == nil {
-		return nil, fmt.Errorf("invalid IP address")
+		return nil, fmt.Errorf("invalid IP address %q", string(p))
 	}
 
 	return ip, nil

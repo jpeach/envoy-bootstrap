@@ -59,7 +59,9 @@ func newServer() *runState {
 			return nil
 		},
 		StreamResponseFunc: func(streamID int64, request *envoy_service_discovery_v3.DiscoveryRequest, response *envoy_service_discovery_v3.DiscoveryResponse) {
-			log.Printf("[%d] %s", streamID, response)
+			if err := request.GetErrorDetail(); err != nil {
+				log.Printf("xDS error (code %d): %s", err.Code, err.Message)
+			}
 		},
 	}
 
@@ -208,6 +210,11 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 		log.Fatalf("%s", err)
 	}
 
+	hackNames := map[string]func(hacks.Spec) xds.Snapshot{
+		"tcpproxy": hacks.HackTCPProxy,
+		"lua":      hacks.HackLuaFilter,
+	}
+
 	for _, h := range must.StringSlice(cmd.Flags().GetStringArray("hack")) {
 		spec, err := hacks.ParseSpec(h)
 		if err != nil {
@@ -216,11 +223,10 @@ func runEnvoy(cmd *cobra.Command, args []string) error {
 
 		var snap xds.Snapshot
 
-		switch spec.Hack {
-		case "tcpproxy":
-			snap = hacks.HackTCPProxy(spec)
-		default:
-			log.Printf("invalid hack spec %q: not found", h)
+		if h, ok := hackNames[spec.Hack]; ok {
+			snap = h(spec)
+		} else {
+			log.Printf("invalid hack spec %q: not found", spec.Hack)
 		}
 
 		// NOTE(jpeach): The NodeID we pass here matches the ConstantHash value.
