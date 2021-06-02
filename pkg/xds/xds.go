@@ -23,6 +23,7 @@ import (
 
 type Server = server.Server
 type Callbacks = server.Callbacks
+type CallbackFuncs = server.CallbackFuncs
 
 type Snapshot = cache.Snapshot
 type SnapshotCache = cache.SnapshotCache
@@ -52,78 +53,6 @@ var _ cache.NodeHash = ConstantHash("")
 
 func (c ConstantHash) ID(*envoy_config_core_v3.Node) string {
 	return string(c)
-}
-
-// CallbackFuncs is a convenience type for generating Server callbacks.
-type CallbackFuncs struct {
-	// OnStreamOpen is called once an xDS stream is open with a stream ID and the type URL (or "" for ADS).
-	// Returning an error will end processing and close the stream. OnStreamClosed will still be called.
-	StreamOpenFunc func(context.Context, int64, string) error
-	// OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
-	StreamClosedFunc func(int64)
-	// OnStreamRequest is called once a request is received on a stream.
-	// Returning an error will end processing and close the stream. OnStreamClosed will still be called.
-	StreamRequestFunc func(int64, *discovery.DiscoveryRequest) error
-	// OnStreamResponse is called immediately prior to sending a response on a stream.
-	StreamResponseFunc func(int64, *discovery.DiscoveryRequest, *discovery.DiscoveryResponse)
-	// OnFetchRequest is called for each Fetch request. Returning an error will end processing of the
-	// request and respond with an error.
-	FetchRequestFunc func(context.Context, *discovery.DiscoveryRequest) error
-	// OnFetchResponse is called immediately prior to sending a response.
-	FetchResponseFunc func(*discovery.DiscoveryRequest, *discovery.DiscoveryResponse)
-}
-
-var _ Callbacks = CallbackFuncs{}
-
-// OnStreamOpen is called once an xDS stream is open with a stream ID and the type URL (or "" for ADS).
-// Returning an error will end processing and close the stream. OnStreamClosed will still be called.
-func (c CallbackFuncs) OnStreamOpen(ctx context.Context, streamID int64, typeURL string) error {
-	if c.StreamOpenFunc != nil {
-		return c.StreamOpenFunc(ctx, streamID, typeURL)
-	}
-
-	return nil
-}
-
-// OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
-func (c CallbackFuncs) OnStreamClosed(streamID int64) {
-	if c.StreamClosedFunc != nil {
-		c.StreamClosedFunc(streamID)
-	}
-}
-
-// OnStreamRequest is called once a request is received on a stream.
-// Returning an error will end processing and close the stream. OnStreamClosed will still be called.
-func (c CallbackFuncs) OnStreamRequest(streamID int64, req *discovery.DiscoveryRequest) error {
-	if c.StreamRequestFunc != nil {
-		return c.StreamRequestFunc(streamID, req)
-	}
-
-	return nil
-}
-
-// OnStreamResponse is called immediately prior to sending a response on a stream.
-func (c CallbackFuncs) OnStreamResponse(streamID int64, req *discovery.DiscoveryRequest, resp *discovery.DiscoveryResponse) {
-	if c.StreamResponseFunc != nil {
-		c.StreamResponseFunc(streamID, req, resp)
-	}
-}
-
-// OnFetchRequest is called for each Fetch request. Returning an error will end processing of the
-// request and respond with an error.
-func (c CallbackFuncs) OnFetchRequest(ctx context.Context, req *discovery.DiscoveryRequest) error {
-	if c.FetchRequestFunc != nil {
-		return c.FetchRequestFunc(ctx, req)
-	}
-
-	return nil
-}
-
-// OnFetchResponse is called immediately prior to sending a response.
-func (c CallbackFuncs) OnFetchResponse(req *discovery.DiscoveryRequest, resp *discovery.DiscoveryResponse) {
-	if c.FetchResponseFunc != nil {
-		c.FetchResponseFunc(req, resp)
-	}
 }
 
 // StandardLogger implements Logger using the Go log package.

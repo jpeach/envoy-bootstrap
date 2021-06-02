@@ -12,9 +12,9 @@ readonly CONTROLPLANE="${REPO}/vendor/github.com/envoyproxy/go-control-plane"
 (
 	cd "$CONTROLPLANE"
 
-	echo package envoy
-
 	cat <<EOF
+package bootstrap
+
 // Import all the Envoy API packages from go-control-plane for their
 // side-effects. This causes all their protobuf types to be registered.
 
