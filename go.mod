@@ -1,6 +1,6 @@
 module github.com/jpeach/envoy-bootstrap
 
-go 1.14
+go 1.16
 
 require (
 	github.com/envoyproxy/go-control-plane v0.9.5
